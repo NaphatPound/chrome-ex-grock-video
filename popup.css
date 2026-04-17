@@ -107,7 +107,8 @@ input[type="file"]:hover {
   border-color: #00d4ff;
 }
 
-input[type="number"] {
+input[type="number"],
+input[type="text"] {
   width: 100%;
   padding: 10px;
   border: 1px solid #333;
@@ -117,7 +118,8 @@ input[type="number"] {
   font-family: inherit;
 }
 
-input[type="number"]:focus {
+input[type="number"]:focus,
+input[type="text"]:focus {
   outline: none;
   border-color: #00d4ff;
 }

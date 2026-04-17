@@ -32,6 +32,12 @@
       <small>Loop count equals the number of uploaded images. Each iteration uses image[i] with prompt[i % prompts].</small>
     </div>
 
+    <div class="section">
+      <label for="downloadFolder">Download Subfolder:</label>
+      <input type="text" id="downloadFolder" placeholder="grok-videos" value="grok-videos">
+      <small>Relative to your browser's default Downloads folder. Files are saved as &lt;image-name&gt;_video.mp4.</small>
+    </div>
+
     <div class="section checkbox-section">
       <label>
         <input type="checkbox" id="autoDownload" checked>

@@ -5,6 +5,7 @@ class GrokVideoGenerator {
     this.isRunning = false;
     this.shouldStop = false;
     this.currentConfig = null;
+    this.currentImageName = null;
     this.progress = { current: 0, total: 0 };
     this.grokTabId = null;
     this.keepAliveInterval = null;
@@ -42,12 +43,15 @@ class GrokVideoGenerator {
     // MV3 service workers can be evicted between events. Rehydrate
     // currentConfig so a VIDEO_READY that wakes the worker can still find
     // autoDownload (otherwise the download is silently skipped).
-    const state = await chrome.storage.local.get(['isRunning', 'currentConfig']);
+    const state = await chrome.storage.local.get(['isRunning', 'currentConfig', 'currentImageName']);
     if (state.isRunning) {
       await chrome.storage.local.set({ isRunning: false });
     }
     if (state.currentConfig) {
       this.currentConfig = state.currentConfig;
+    }
+    if (state.currentImageName) {
+      this.currentImageName = state.currentImageName;
     }
   }
 
@@ -108,8 +112,9 @@ class GrokVideoGenerator {
   stopGeneration() {
     this.shouldStop = true;
     this.isRunning = false;
+    this.currentImageName = null;
     this.stopKeepAlive();
-    chrome.storage.local.set({ isRunning: false, currentConfig: null });
+    chrome.storage.local.set({ isRunning: false, currentConfig: null, currentImageName: null });
     this.notifyStateChange();
     this.log('Stopping generation...', 'warning');
   }
@@ -211,6 +216,10 @@ class GrokVideoGenerator {
       const image = images[imgIndex];
       const promptIndex = imgIndex % prompts.length;
       const prompt = prompts[promptIndex];
+      // Remember which source image produced the upcoming video so the
+      // VIDEO_READY handler can name the download after it.
+      this.currentImageName = image?.name || null;
+      await chrome.storage.local.set({ currentImageName: this.currentImageName });
 
       this.log(`Processing image ${imgIndex + 1}/${images.length} — prompt #${promptIndex + 1}/${prompts.length}`, 'info');
 
@@ -250,7 +259,8 @@ class GrokVideoGenerator {
     }
 
     this.isRunning = false;
-    await chrome.storage.local.set({ isRunning: false, currentConfig: null });
+    this.currentImageName = null;
+    await chrome.storage.local.set({ isRunning: false, currentConfig: null, currentImageName: null });
     this.notifyStateChange();
     this.log('Generation completed!', 'success');
   }
@@ -310,21 +320,50 @@ class GrokVideoGenerator {
 
   async handleVideoReady(videoUrl, videoData) {
     // If the service worker was evicted and restarted between loops,
-    // currentConfig may not be rehydrated yet. Pull it from storage so we
-    // don't drop the download for autoDownload users.
-    if (!this.currentConfig) {
-      const stored = await chrome.storage.local.get('currentConfig');
-      if (stored.currentConfig) this.currentConfig = stored.currentConfig;
+    // currentConfig / currentImageName may not be rehydrated yet. Pull
+    // them from storage so we don't drop the download for autoDownload users.
+    if (!this.currentConfig || !this.currentImageName) {
+      const stored = await chrome.storage.local.get(['currentConfig', 'currentImageName']);
+      if (!this.currentConfig && stored.currentConfig) this.currentConfig = stored.currentConfig;
+      if (!this.currentImageName && stored.currentImageName) this.currentImageName = stored.currentImageName;
     }
     if (this.currentConfig?.autoDownload && (videoUrl || videoData)) {
       await this.downloadVideo(videoUrl, videoData);
     }
   }
 
+  // Path-sanitize a segment so Chrome's downloads API accepts it.
+  // Strips characters Chrome rejects ( <>:"|?* ), trims, and guards against
+  // empty strings / leading dots / path traversal.
+  sanitizePathSegment(name, fallback) {
+    const cleaned = (name || '')
+      .replace(/[<>:"|?*\x00-\x1f]/g, '')
+      .replace(/[\\/]+/g, '_')
+      .replace(/^\.+/, '')
+      .trim();
+    return cleaned || fallback;
+  }
+
+  buildDownloadFilename() {
+    const rawFolder = this.currentConfig?.downloadFolder || '';
+    const folder = rawFolder
+      .split('/')
+      .map(seg => this.sanitizePathSegment(seg, ''))
+      .filter(Boolean)
+      .join('/');
+
+    // Strip extension from the source image name: "image1.png" -> "image1"
+    const rawImage = this.currentImageName || `grok-video-${Date.now()}`;
+    const base = rawImage.replace(/\.[^./\\]+$/, '');
+    const safeBase = this.sanitizePathSegment(base, `grok-video-${Date.now()}`);
+
+    const filename = `${safeBase}_video.mp4`;
+    return folder ? `${folder}/${filename}` : filename;
+  }
+
   async downloadVideo(videoUrl, videoData) {
     try {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `grok-video-${timestamp}.mp4`;
+      const filename = this.buildDownloadFilename();
 
       if (videoData) {
         // Download from base64 data

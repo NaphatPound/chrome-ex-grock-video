@@ -20,6 +20,7 @@ class GrokVideoPopup {
       imageInput: document.getElementById('imageInput'),
       imagePreview: document.getElementById('imagePreview'),
       delayBetween: document.getElementById('delayBetween'),
+      downloadFolder: document.getElementById('downloadFolder'),
       autoDownload: document.getElementById('autoDownload'),
       startBtn: document.getElementById('startBtn'),
       stopBtn: document.getElementById('stopBtn'),
@@ -41,7 +42,7 @@ class GrokVideoPopup {
     this.elements.openGrokBtn.addEventListener('click', () => this.openGrok());
 
     // Save settings on change
-    ['prompt', 'delayBetween'].forEach(id => {
+    ['prompt', 'delayBetween', 'downloadFolder'].forEach(id => {
       this.elements[id].addEventListener('change', () => this.saveSettings());
     });
     ['autoDownload'].forEach(id => {
@@ -56,11 +57,12 @@ class GrokVideoPopup {
 
   async loadSettings() {
     const settings = await chrome.storage.local.get([
-      'prompt', 'delayBetween', 'autoDownload', 'logs'
+      'prompt', 'delayBetween', 'downloadFolder', 'autoDownload', 'logs'
     ]);
 
     if (settings.prompt) this.elements.prompt.value = settings.prompt;
     if (settings.delayBetween) this.elements.delayBetween.value = settings.delayBetween;
+    if (settings.downloadFolder !== undefined) this.elements.downloadFolder.value = settings.downloadFolder;
     if (settings.autoDownload !== undefined) this.elements.autoDownload.checked = settings.autoDownload;
     if (settings.logs) {
       settings.logs.forEach(log => this.addLogEntry(log.message, log.type, false));
@@ -71,6 +73,7 @@ class GrokVideoPopup {
     await chrome.storage.local.set({
       prompt: this.elements.prompt.value,
       delayBetween: parseInt(this.elements.delayBetween.value),
+      downloadFolder: this.elements.downloadFolder.value,
       autoDownload: this.elements.autoDownload.checked
     });
   }
@@ -139,6 +142,7 @@ class GrokVideoPopup {
       prompts,
       images: this.images,
       delayBetween: parseInt(this.elements.delayBetween.value) * 1000,
+      downloadFolder: this.elements.downloadFolder.value.trim(),
       autoDownload: this.elements.autoDownload.checked
     };
 
