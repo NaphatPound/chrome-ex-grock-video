@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grok Video Generator</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Grok Video Generator</h1>
+
+    <div class="status-bar" id="statusBar">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">Ready</span>
+    </div>
+
+    <div class="section">
+      <label for="prompt">Video Prompt:</label>
+      <textarea id="prompt" placeholder="Enter your video generation prompt..."></textarea>
+    </div>
+
+    <div class="section">
+      <label for="imageInput">Upload Images:</label>
+      <input type="file" id="imageInput" accept="image/*" multiple>
+      <div id="imagePreview" class="image-preview"></div>
+    </div>
+
+    <div class="section">
+      <label for="loopCount">Loop Count:</label>
+      <input type="number" id="loopCount" min="1" max="100" value="1">
+      <small>Number of videos to generate per image</small>
+    </div>
+
+    <div class="section">
+      <label for="delayBetween">Delay Between Generations (seconds):</label>
+      <input type="number" id="delayBetween" min="5" max="300" value="30">
+    </div>
+
+    <div class="section checkbox-section">
+      <label>
+        <input type="checkbox" id="autoDownload" checked>
+        Auto-download completed videos
+      </label>
+    </div>
+
+    <div class="section checkbox-section">
+      <label>
+        <input type="checkbox" id="continuousMode">
+        Continuous mode (keep generating)
+      </label>
+    </div>
+
+    <div class="button-group">
+      <button id="startBtn" class="btn btn-primary">Start Generation</button>
+      <button id="stopBtn" class="btn btn-danger" disabled>Stop</button>
+    </div>
+
+    <div class="section">
+      <label>Progress:</label>
+      <div class="progress-container">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="progress-text">
+        <span id="progressText">0 / 0 completed</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <label>Log:</label>
+      <div id="logContainer" class="log-container"></div>
+    </div>
+
+    <div class="section">
+      <button id="clearLogBtn" class="btn btn-secondary">Clear Log</button>
+      <button id="openGrokBtn" class="btn btn-secondary">Open Grok</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
