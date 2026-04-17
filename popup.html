@@ -16,8 +16,8 @@
     </div>
 
     <div class="section">
-      <label for="prompt">Video Prompt:</label>
-      <textarea id="prompt" placeholder="Enter your video generation prompt..."></textarea>
+      <label for="prompt">Video Prompts (one per line):</label>
+      <textarea id="prompt" placeholder="One prompt per line. Loop iteration N uses prompt at index N (cycles if loop count is larger than the number of prompts)."></textarea>
     </div>
 
     <div class="section">
@@ -27,27 +27,15 @@
     </div>
 
     <div class="section">
-      <label for="loopCount">Loop Count:</label>
-      <input type="number" id="loopCount" min="1" max="100" value="1">
-      <small>Number of videos to generate per image</small>
-    </div>
-
-    <div class="section">
       <label for="delayBetween">Delay Between Generations (seconds):</label>
       <input type="number" id="delayBetween" min="5" max="300" value="30">
+      <small>Loop count equals the number of uploaded images. Each iteration uses image[i] with prompt[i % prompts].</small>
     </div>
 
     <div class="section checkbox-section">
       <label>
         <input type="checkbox" id="autoDownload" checked>
         Auto-download completed videos
-      </label>
-    </div>
-
-    <div class="section checkbox-section">
-      <label>
-        <input type="checkbox" id="continuousMode">
-        Continuous mode (keep generating)
       </label>
     </div>
 

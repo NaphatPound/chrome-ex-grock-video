@@ -80,7 +80,8 @@ class GrokVideoGenerator {
     this.isRunning = true;
     this.shouldStop = false;
     this.currentConfig = config;
-    this.progress = { current: 0, total: config.images.length * config.loopCount };
+    // One generation per uploaded image; loop count is implicitly images.length.
+    this.progress = { current: 0, total: config.images.length };
 
     await chrome.storage.local.set({
       isRunning: true,
@@ -196,62 +197,57 @@ class GrokVideoGenerator {
   }
 
   async runGenerationLoop() {
-    const { images, loopCount, delayBetween, continuousMode, prompt } = this.currentConfig;
+    const { images, delayBetween } = this.currentConfig;
+    // Support both the new prompts[] array and the old single-prompt config
+    // (older persisted configs may still be in storage from previous runs).
+    const prompts = Array.isArray(this.currentConfig.prompts)
+      ? this.currentConfig.prompts
+      : (this.currentConfig.prompt ? [this.currentConfig.prompt] : []);
     let isFirstGeneration = true;
 
-    do {
-      for (let imgIndex = 0; imgIndex < images.length; imgIndex++) {
-        if (this.shouldStop) break;
+    for (let imgIndex = 0; imgIndex < images.length; imgIndex++) {
+      if (this.shouldStop) break;
 
-        const image = images[imgIndex];
+      const image = images[imgIndex];
+      const promptIndex = imgIndex % prompts.length;
+      const prompt = prompts[promptIndex];
 
-        for (let loop = 0; loop < loopCount; loop++) {
-          if (this.shouldStop) break;
+      this.log(`Processing image ${imgIndex + 1}/${images.length} — prompt #${promptIndex + 1}/${prompts.length}`, 'info');
 
-          this.log(`Processing image ${imgIndex + 1}/${images.length}, loop ${loop + 1}/${loopCount}`, 'info');
-
-          try {
-            // After the first generation the tab is on a result page;
-            // navigate back to the image-generation start page so the
-            // content script can find the input and upload controls again.
-            if (!isFirstGeneration) {
-              this.log('Navigating back to Grok images page...', 'info');
-              await this.navigateToStart();
-            }
-            isFirstGeneration = false;
-
-            // Send image and prompt to content script
-            await this.sendToContentScript({
-              action: 'GENERATE_VIDEO',
-              image: image,
-              prompt: prompt
-            });
-
-            // Wait for generation to complete (handled by content script response)
-            await this.waitForGeneration();
-            this.log('Generation finished, preparing next iteration', 'success');
-
-            this.progress.current++;
-            await chrome.storage.local.set({ progress: this.progress });
-            this.notifyProgress();
-
-            if (!this.shouldStop && (loop < loopCount - 1 || imgIndex < images.length - 1 || continuousMode)) {
-              this.log(`Waiting ${delayBetween / 1000} seconds before next generation...`, 'info');
-              await this.delay(delayBetween);
-            }
-          } catch (error) {
-            this.log(`Error: ${error.message}`, 'error');
-            await this.delay(5000); // Wait before retry
-          }
+      try {
+        // After the first generation the tab is on a result page;
+        // navigate back to the image-generation start page so the
+        // content script can find the input and upload controls again.
+        if (!isFirstGeneration) {
+          this.log('Navigating back to Grok images page...', 'info');
+          await this.navigateToStart();
         }
-      }
+        isFirstGeneration = false;
 
-      // Reset progress for continuous mode
-      if (continuousMode && !this.shouldStop) {
-        this.progress.current = 0;
-        this.log('Continuous mode: Starting new cycle...', 'info');
+        // Send image and prompt to content script
+        await this.sendToContentScript({
+          action: 'GENERATE_VIDEO',
+          image: image,
+          prompt: prompt
+        });
+
+        // Wait for generation to complete (handled by content script response)
+        await this.waitForGeneration();
+        this.log('Generation finished, preparing next iteration', 'success');
+
+        this.progress.current++;
+        await chrome.storage.local.set({ progress: this.progress });
+        this.notifyProgress();
+
+        if (!this.shouldStop && imgIndex < images.length - 1) {
+          this.log(`Waiting ${delayBetween / 1000} seconds before next generation...`, 'info');
+          await this.delay(delayBetween);
+        }
+      } catch (error) {
+        this.log(`Error: ${error.message}`, 'error');
+        await this.delay(5000); // Wait before retry
       }
-    } while (continuousMode && !this.shouldStop);
+    }
 
     this.isRunning = false;
     await chrome.storage.local.set({ isRunning: false, currentConfig: null });

@@ -19,10 +19,8 @@ class GrokVideoPopup {
       prompt: document.getElementById('prompt'),
       imageInput: document.getElementById('imageInput'),
       imagePreview: document.getElementById('imagePreview'),
-      loopCount: document.getElementById('loopCount'),
       delayBetween: document.getElementById('delayBetween'),
       autoDownload: document.getElementById('autoDownload'),
-      continuousMode: document.getElementById('continuousMode'),
       startBtn: document.getElementById('startBtn'),
       stopBtn: document.getElementById('stopBtn'),
       progressBar: document.getElementById('progressBar'),
@@ -43,10 +41,10 @@ class GrokVideoPopup {
     this.elements.openGrokBtn.addEventListener('click', () => this.openGrok());
 
     // Save settings on change
-    ['prompt', 'loopCount', 'delayBetween'].forEach(id => {
+    ['prompt', 'delayBetween'].forEach(id => {
       this.elements[id].addEventListener('change', () => this.saveSettings());
     });
-    ['autoDownload', 'continuousMode'].forEach(id => {
+    ['autoDownload'].forEach(id => {
       this.elements[id].addEventListener('change', () => this.saveSettings());
     });
 
@@ -58,14 +56,12 @@ class GrokVideoPopup {
 
   async loadSettings() {
     const settings = await chrome.storage.local.get([
-      'prompt', 'loopCount', 'delayBetween', 'autoDownload', 'continuousMode', 'logs'
+      'prompt', 'delayBetween', 'autoDownload', 'logs'
     ]);
 
     if (settings.prompt) this.elements.prompt.value = settings.prompt;
-    if (settings.loopCount) this.elements.loopCount.value = settings.loopCount;
     if (settings.delayBetween) this.elements.delayBetween.value = settings.delayBetween;
     if (settings.autoDownload !== undefined) this.elements.autoDownload.checked = settings.autoDownload;
-    if (settings.continuousMode !== undefined) this.elements.continuousMode.checked = settings.continuousMode;
     if (settings.logs) {
       settings.logs.forEach(log => this.addLogEntry(log.message, log.type, false));
     }
@@ -74,10 +70,8 @@ class GrokVideoPopup {
   async saveSettings() {
     await chrome.storage.local.set({
       prompt: this.elements.prompt.value,
-      loopCount: parseInt(this.elements.loopCount.value),
       delayBetween: parseInt(this.elements.delayBetween.value),
-      autoDownload: this.elements.autoDownload.checked,
-      continuousMode: this.elements.continuousMode.checked
+      autoDownload: this.elements.autoDownload.checked
     });
   }
 
@@ -124,9 +118,13 @@ class GrokVideoPopup {
   }
 
   async startGeneration() {
-    const prompt = this.elements.prompt.value.trim();
-    if (!prompt) {
-      this.addLogEntry('Please enter a prompt', 'error');
+    const prompts = this.elements.prompt.value
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+
+    if (prompts.length === 0) {
+      this.addLogEntry('Please enter at least one prompt', 'error');
       return;
     }
 
@@ -138,12 +136,10 @@ class GrokVideoPopup {
     await this.saveSettings();
 
     const config = {
-      prompt,
+      prompts,
       images: this.images,
-      loopCount: parseInt(this.elements.loopCount.value),
       delayBetween: parseInt(this.elements.delayBetween.value) * 1000,
-      autoDownload: this.elements.autoDownload.checked,
-      continuousMode: this.elements.continuousMode.checked
+      autoDownload: this.elements.autoDownload.checked
     };
 
     // Send to background script
